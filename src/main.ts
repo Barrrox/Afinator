@@ -27,63 +27,83 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </div>
 `;
 
-// Inicializa UI (Componentes visuais podem ser iniciados antes)
+// Componentes da UI
 const piano = new PianoComponent('piano-container');
 const tuner = new TunerDisplay();
+const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
+const statusText = document.getElementById('status-text')!;
 
-// Adaptador da UI
+// Variáveis de Estado (Globais)
+let game: GameLoop | null = null;
+let audio: AudioEngine | null = null;
+let detector: PitchDetector | null = null;
+let audioCtx: AudioContext | null = null;
+let isInitialized = false; // Flag para saber se já carregamos a IA
+
+// Adaptador da UI (Ponte entre a lógica e a tela)
 const uiAdapter = {
   highlightTarget: (midi: number) => piano.highlightTarget(midi),
   highlightUserNote: (midi: number) => piano.highlightUser(midi),
   updateGauge: (cents: number) => tuner.updateGauge(cents),
   updateProgressBar: (percent: number) => tuner.updateProgress(percent),
-  showVictoryMessage: () => tuner.showVictory()
+  
+  // Quando vencer: Mostra parabéns e libera o botão de novo
+  showVictoryMessage: () => {
+    tuner.showVictory();
+    btnStart.innerText = "JOGAR NOVAMENTE";
+    btnStart.style.display = "block"; // Reexibe o botão
+    btnStart.disabled = false;
+  }
 };
 
-// Variáveis de controle
-let game: GameLoop | null = null;
-let audio: AudioEngine | null = null;
-let detector: PitchDetector | null = null;
-
-const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
-
+// --- O Cérebro do Botão ---
 btnStart.addEventListener('click', async () => {
-  btnStart.innerText = "Inicializando...";
   btnStart.disabled = true;
 
   try {
-    // 1. CRUCIAL: Criar o AudioContext AQUI, no momento do clique.
-    // Isso garante que o navegador entenda que foi intenção do usuário.
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
-    latencyHint: 'interactive', // PRIORIDADE MÁXIMA PARA VELOCIDADE
-    sampleRate: 44100, // Força padrão para evitar conversão pesada
-    });
+    // 1. PRIMEIRA VEZ: Carrega tudo (Pesado)
+    if (!isInitialized) {
+      btnStart.innerText = "Inicializando...";
+      
+      // Cria e acorda o AudioContext
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+        latencyHint: 'interactive',
+        sampleRate: 44100,
+      });
+      await audioCtx.resume();
+
+      // Inicia motores
+      audio = new AudioEngine();
+      await audio.initialize();
+
+      detector = new PitchDetector(audioCtx);
+      await detector.initialize();
+
+      // Cria o jogo
+      game = new GameLoop(detector, audio, uiAdapter);
+      isInitialized = true;
+    }
+
+    // 2. REINÍCIO (Leve): Apenas limpa a tela e começa
+    // Limpa visual antigo
+    piano.clearHighlights(); 
+    tuner.updateGauge(0);      // Zera agulha
+    tuner.updateProgress(0);   // Zera barra
     
-    // Força o resume imediatamente
-    await audioCtx.resume();
-
-    // 2. Inicia os motores
-    audio = new AudioEngine();
-    await audio.initialize(); // Inicia Tone.js
-
-    detector = new PitchDetector(audioCtx);
-    await detector.initialize(); // Inicia ML5
-
-    // 3. Inicia o Jogo
-    game = new GameLoop(detector, audio, uiAdapter);
-    
-    // Esconde botão e começa
+    // Esconde botão e atualiza status
     btnStart.style.display = 'none';
-    document.getElementById('status-text')!.innerText = "Ouça a nota...";
-    
-    // Nota inicial aleatória entre C3 (48) e C5 (72)
+    statusText.innerText = "Ouça a nota...";
+    statusText.style.color = "white"; // Reseta cor do texto (caso esteja azul de vitória)
+
+    // Sorteia nova nota (C3 a C5) e começa
     const randomNote = Math.floor(Math.random() * (72 - 48) + 48);
-    game.startGame(randomNote);
+    game!.startGame(randomNote);
 
   } catch (e) {
     console.error(e);
     alert("Erro: " + e);
     btnStart.innerText = "Erro - Tentar Novamente";
     btnStart.disabled = false;
+    isInitialized = false; // Força tentar inicializar de novo se der erro
   }
 });
