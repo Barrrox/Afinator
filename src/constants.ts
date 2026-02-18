@@ -8,21 +8,21 @@ export interface DifficultyConfig {
 export const DIFFICULTY_MODES: { [key: string]: DifficultyConfig } = {
   zero: {
     label: "Preciso treinar percepção musical do zero",
-    description: "Facilitado: Aceita desvios de até meio tom (100 cents). Tempo: 3s.",
+    description: "Aceita desvios de até meio tom para contar como afinado. Margem de 100 cents. Tempo mínimo mantendo a nota: 3s.",
     tolerance: 100,
     duration: 3000
   },
   manter: {
     label: "Preciso treinar manter a nota",
-    description: "Médio: Foco em estabilidade. Margem de 30 cents. Tempo: 7s.",
+    description: "Foco em estabilidade. Tempo maior mas não precisa ser taaao afinado. Margem de 30 cents. Tempo mínimo mantendo a nota: 7s.",
     tolerance: 30,
     duration: 7000
   },
   absoluta: {
-    label: "Preciso treinar afinação absoluta",
-    description: "Difícil: Alta precisão (15 cents). Tempo: 4s.",
-    tolerance: 15,
-    duration: 4000
+    label: "Preciso treinar afinação absoluta.",
+    description: "Foco em alta precisão. Margem: 10 cents. Tempo mínimo mantendo a nota: 5s.",
+    tolerance: 10,
+    duration: 5000
   }
 };
 

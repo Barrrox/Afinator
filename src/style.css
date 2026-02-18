@@ -174,3 +174,52 @@ body {
   margin-top: 20px; background: none; border: 1px solid #777;
   color: #aaa; padding: 10px; cursor: pointer;
 }
+
+/* Pop-up de Explicação (Help Modal) */
+.help-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 200; /* Acima do modal de dificuldade */
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.help-popup-overlay.active {
+  display: flex;
+}
+
+.help-popup-content {
+  background: #444;
+  padding: 25px;
+  border-radius: 12px;
+  max-width: 400px;
+  text-align: center;
+  border: 1px solid #3b82f6;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.help-popup-content h4 {
+  margin-top: 0;
+  color: #3b82f6;
+}
+
+.help-popup-content p {
+  line-height: 1.5;
+  color: #eee;
+}
+
+#btn-close-help {
+  margin-top: 15px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+

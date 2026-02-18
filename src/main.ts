@@ -31,6 +31,14 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <button id="btn-close-modal" style="margin-top:15px">Fechar</button>
     </div>
   </div>
+
+  <div id="help-popup" class="help-popup-overlay">
+    <div class="help-popup-content">
+      <h4 id="help-title">Dificuldade</h4>
+      <p id="help-text"></p>
+      <button id="btn-close-help">Entendi</button>
+    </div>
+  </div>
 `;
 
 // -- ESTADO GLOBAL --
@@ -48,22 +56,44 @@ function switchScreen(screenId: 'menu' | 'game') {
   document.getElementById(`screen-${screenId}`)?.classList.add('active');
 }
 
+// -- LÓGICA DE AJUDA --
+function openHelp(key: string) {
+  const cfg = DIFFICULTY_MODES[key];
+  document.getElementById('help-title')!.innerText = cfg.label;
+  document.getElementById('help-text')!.innerText = cfg.description;
+  document.getElementById('help-popup')!.classList.add('active');
+}
+
+document.getElementById('btn-close-help')?.addEventListener('click', () => {
+  document.getElementById('help-popup')!.classList.remove('active');
+});
+
 // -- MODAL E DIFICULDADE --
 function renderDifficultyOptions() {
   const list = document.getElementById('difficulty-list')!;
   list.innerHTML = Object.entries(DIFFICULTY_MODES).map(([key, cfg]) => `
     <div class="difficulty-option ${currentMode === key ? 'selected' : ''}" data-key="${key}">
       <span>${cfg.label}</span>
-      <div class="help-icon" title="${cfg.description}">?</div>
+      <div class="help-icon" data-help-key="${key}">?</div>
     </div>
   `).join('');
 
+  // Clique na opção (seleciona dificuldade)
   document.querySelectorAll('.difficulty-option').forEach(opt => {
     opt.addEventListener('click', (e) => {
       const target = e.currentTarget as HTMLElement;
       currentMode = target.dataset.key!;
       localStorage.setItem('afinator_diff', currentMode);
-      renderDifficultyOptions(); // Atualiza visual
+      renderDifficultyOptions();
+    });
+  });
+
+  // Clique na interrogação (abre explicação)
+  document.querySelectorAll('.help-icon').forEach(icon => {
+    icon.addEventListener('click', (e) => {
+      e.stopPropagation(); // Impede que selecione a dificuldade ao clicar no ?
+      const key = (e.currentTarget as HTMLElement).dataset.helpKey!;
+      openHelp(key);
     });
   });
 }
@@ -78,7 +108,7 @@ document.getElementById('btn-close-modal')?.addEventListener('click', () => {
   document.getElementById('modal-difficulty')?.classList.remove('active');
 });
 
-document.getElementById('btn-back-menu')?.addEventListener('click', () => location.reload()); // Simplificado para o MVP
+document.getElementById('btn-back-menu')?.addEventListener('click', () => location.reload());
 
 document.getElementById('btn-start-game')?.addEventListener('click', async () => {
   switchScreen('game');
@@ -99,7 +129,7 @@ document.getElementById('btn-start-game')?.addEventListener('click', async () =>
     updateProgressBar: (p:any) => tuner.updateProgress(p),
     showVictoryMessage: () => {
       tuner.showVictory();
-      setTimeout(() => switchScreen('menu'), 2000); // Volta ao menu após 2s de vitória
+      setTimeout(() => switchScreen('menu'), 2000);
     }
   }, { tolerance: cfg.tolerance, duration: cfg.duration });
 
