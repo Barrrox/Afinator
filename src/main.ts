@@ -5,6 +5,7 @@ import { GameLoop } from './core/GameLoop';
 import { PianoComponent } from './ui/PianoComponent';
 import { TunerDisplay } from './ui/TunerDisplay';
 import { DIFFICULTY_MODES, DEFAULT_MODE } from './constants';
+import { MusicMath } from './utils/MusicMath';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div id="screen-menu" class="screen active menu-container">
@@ -19,7 +20,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="progress-container"><div id="progress-fill"></div></div>
     <div id="piano-container"></div>
     <div class="controls">
-      <button id="btn-replay">🔊 Ouvir</button>
+      <button id="btn-replay">🔊 Ouvir Nota</button>
       <button id="btn-back-menu">Sair do Jogo</button>
     </div>
   </div>
@@ -43,6 +44,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
 // -- ESTADO GLOBAL --
 let currentMode = localStorage.getItem('afinator_diff') || DEFAULT_MODE;
+let currentTargetMidi: number | null = null;
 let audioCtx: AudioContext | null = null;
 let detector: PitchDetector | null = null;
 let audio: AudioEngine | null = null;
@@ -78,7 +80,6 @@ function renderDifficultyOptions() {
     </div>
   `).join('');
 
-  // Clique na opção (seleciona dificuldade)
   document.querySelectorAll('.difficulty-option').forEach(opt => {
     opt.addEventListener('click', (e) => {
       const target = e.currentTarget as HTMLElement;
@@ -88,10 +89,9 @@ function renderDifficultyOptions() {
     });
   });
 
-  // Clique na interrogação (abre explicação)
   document.querySelectorAll('.help-icon').forEach(icon => {
     icon.addEventListener('click', (e) => {
-      e.stopPropagation(); // Impede que selecione a dificuldade ao clicar no ?
+      e.stopPropagation();
       const key = (e.currentTarget as HTMLElement).dataset.helpKey!;
       openHelp(key);
     });
@@ -110,8 +110,17 @@ document.getElementById('btn-close-modal')?.addEventListener('click', () => {
 
 document.getElementById('btn-back-menu')?.addEventListener('click', () => location.reload());
 
+// Lógica do Botão Ouvir Novamente
+document.getElementById('btn-replay')?.addEventListener('click', () => {
+  if (audio && currentTargetMidi) {
+    audio.playNote(MusicMath.midiToFreq(currentTargetMidi), '2n');
+  }
+});
+
 document.getElementById('btn-start-game')?.addEventListener('click', async () => {
   switchScreen('game');
+
+  document.getElementById('btn-replay')!.style.display = 'block';
   
   if (!audioCtx) {
     audioCtx = new AudioContext({ latencyHint: 'interactive' });
@@ -133,5 +142,7 @@ document.getElementById('btn-start-game')?.addEventListener('click', async () =>
     }
   }, { tolerance: cfg.tolerance, duration: cfg.duration });
 
-  game.startGame(Math.floor(Math.random() * 24 + 48));
+  // Sorteia e armazena a nota atual para permitir o replay
+  currentTargetMidi = Math.floor(Math.random() * 24 + 48);
+  game.startGame(currentTargetMidi);
 });
