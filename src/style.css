@@ -109,15 +109,28 @@ body {
 .controls {
   margin-top: 20px;
   display: flex;
-  justify-content: center; /* Centraliza horizontalmente */
+  justify-content: center;
+  align-items: center;
   width: 100%;
+  gap: 15px; /* Espaço entre os botões */
 }
 
-#btn-start {
-  /* Seus estilos existentes */
-  padding: 15px 30px;
-  font-size: 18px;
+/* Botão Secundário (Ouvir Novamente) */
+#btn-replay {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #555;
+  color: white;
+  border: 1px solid #777;
+  border-radius: 5px;
   cursor: pointer;
-  /* Garante que o botão não estique */
-  max-width: 300px; 
+  display: none; /* Começa invisível */
+}
+
+#btn-replay:hover {
+  background-color: #666;
+}
+
+#btn-replay:active {
+  background-color: #444;
 }
