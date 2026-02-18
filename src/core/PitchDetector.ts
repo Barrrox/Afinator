@@ -44,7 +44,7 @@ export class PitchDetector {
   public getPitch(callback: (freq: number | null) => void) {
     if (!this.model) return;
 
-    this.model.getPitch((err: any, frequency: number) => {
+    this.model.getPitch((_err: any, frequency: number) => {
       if (frequency && frequency > 0) {
         // SEM BUFFER, SEM MÉDIA, SEM ATRASO.
         // Entrega o dado cru imediatamente.
