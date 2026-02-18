@@ -5,14 +5,14 @@ import { GameLoop } from './core/GameLoop';
 import { PianoComponent } from './ui/PianoComponent';
 import { TunerDisplay } from './ui/TunerDisplay';
 
-// 1. Configurar HTML Básico via JS (ou você pode fazer no index.html)
+// HTML Layout
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <h1>Afinator</h1>
+  <h1>Afinator MVP</h1>
   
   <div class="tuner-container">
     <div id="tuner-needle"></div>
   </div>
-  <h2 id="status-text">Aguardando início...</h2>
+  <h2 id="status-text">Clique em JOGAR</h2>
   
   <div class="progress-container">
     <div id="progress-fill"></div>
@@ -27,17 +27,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </div>
 `;
 
-// 2. Inicializar Componentes
+// Inicializa UI (Componentes visuais podem ser iniciados antes)
 const piano = new PianoComponent('piano-container');
 const tuner = new TunerDisplay();
-const audio = new AudioEngine();
 
-// Como o browser não tem AudioContext global no window, pegamos do Tone ou criamos um
-const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-const detector = new PitchDetector(audioCtx);
-
-// 3. Criar a "ponte" entre a lógica do jogo e a UI
-// O GameLoop espera um objeto 'uiController' com métodos específicos
+// Adaptador da UI
 const uiAdapter = {
   highlightTarget: (midi: number) => piano.highlightTarget(midi),
   highlightUserNote: (midi: number) => piano.highlightUser(midi),
@@ -46,30 +40,50 @@ const uiAdapter = {
   showVictoryMessage: () => tuner.showVictory()
 };
 
-const game = new GameLoop(detector, audio, uiAdapter);
+// Variáveis de controle
+let game: GameLoop | null = null;
+let audio: AudioEngine | null = null;
+let detector: PitchDetector | null = null;
 
-// 4. Ligar o botão
-const btnStart = document.getElementById('btn-start')!;
+const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
+
 btnStart.addEventListener('click', async () => {
-  btnStart.innerText = "Carregando...";
-  btnStart.setAttribute('disabled', 'true');
+  btnStart.innerText = "Inicializando...";
+  btnStart.disabled = true;
 
   try {
-    // Inicia Áudio e Microfone
-    await audio.initialize();
-    await detector.initialize();
+    // 1. CRUCIAL: Criar o AudioContext AQUI, no momento do clique.
+    // Isso garante que o navegador entenda que foi intenção do usuário.
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+    latencyHint: 'interactive', // PRIORIDADE MÁXIMA PARA VELOCIDADE
+    sampleRate: 44100, // Força padrão para evitar conversão pesada
+    });
+    
+    // Força o resume imediatamente
+    await audioCtx.resume();
 
-    // Começa o jogo com uma nota fixa para teste (C4 = MIDI 60)
-    // Depois você pode fazer: Math.floor(Math.random() * (72 - 48) + 48)
-    const randomNote = 60; 
+    // 2. Inicia os motores
+    audio = new AudioEngine();
+    await audio.initialize(); // Inicia Tone.js
+
+    detector = new PitchDetector(audioCtx);
+    await detector.initialize(); // Inicia ML5
+
+    // 3. Inicia o Jogo
+    game = new GameLoop(detector, audio, uiAdapter);
     
-    btnStart.style.display = 'none'; // Esconde botão
+    // Esconde botão e começa
+    btnStart.style.display = 'none';
+    document.getElementById('status-text')!.innerText = "Ouça a nota...";
+    
+    // Nota inicial aleatória entre C3 (48) e C5 (72)
+    const randomNote = Math.floor(Math.random() * (72 - 48) + 48);
     game.startGame(randomNote);
-    
+
   } catch (e) {
     console.error(e);
-    alert("Erro ao iniciar: " + e);
-    btnStart.innerText = "Erro (Tentar Novamente)";
-    btnStart.removeAttribute('disabled');
+    alert("Erro: " + e);
+    btnStart.innerText = "Erro - Tentar Novamente";
+    btnStart.disabled = false;
   }
 });

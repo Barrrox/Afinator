@@ -1,17 +1,18 @@
 import { CONFIG } from '../constants';
 import { MusicMath } from '../utils/MusicMath';
 import { PitchDetector } from './PitchDetector';
-import { AudioEngine } from './AudioEngine'; // Classe wrapper do Tone.js (não mostrada por brevidade)
+import { AudioEngine } from './AudioEngine';
 
 export class GameLoop {
   private targetMidi: number | null = null;
   private successStartTime: number | null = null;
   private isRunning: boolean = false;
+  private lastPitchTime = 0;
   
   constructor(
     private pitchDetector: PitchDetector,
     private audioEngine: AudioEngine,
-    private uiController: any // Interface da UI
+    private uiController: any
   ) {}
 
   public startGame(noteMidi: number) {
@@ -19,7 +20,6 @@ export class GameLoop {
     this.isRunning = true;
     this.successStartTime = null;
     
-    // Toca a nota alvo (Azul)
     this.audioEngine.playNote(MusicMath.midiToFreq(noteMidi));
     this.uiController.highlightTarget(noteMidi);
     
@@ -29,45 +29,48 @@ export class GameLoop {
   private loop = () => {
     if (!this.isRunning) return;
 
+    // 1. Renderiza o Visual (Isso roda a 60FPS livremente)
+    requestAnimationFrame(this.loop);
+
+    // 2. Controla a frequência de chamadas da IA
+    // Não adianta chamar a IA 60 vezes por segundo se ela demora 50ms para responder.
+    // Vamos chamar a cada 50ms (aprox 20 vezes por segundo) para não engasgar a CPU.
+    const now = performance.now();
+    if (now - this.lastPitchTime < 50) return; 
+    this.lastPitchTime = now;
+
+    // 3. Pede o Pitch
     this.pitchDetector.getPitch((currentFreq) => {
+      // Se a resposta demorou e o jogo já parou, ignora
+      if (!this.isRunning) return;
+
       if (!currentFreq || !this.targetMidi) {
         this.resetSuccessTimer();
-        requestAnimationFrame(this.loop);
         return;
       }
 
       const targetFreq = MusicMath.midiToFreq(this.targetMidi);
       const currentMidiRaw = MusicMath.freqToMidi(currentFreq);
       const currentMidiRounded = Math.round(currentMidiRaw);
-      
       const centsOff = MusicMath.getCentsOff(currentFreq, targetFreq);
 
-      // Atualiza UI
-      this.uiController.updateGauge(centsOff); // Flechas
-      this.uiController.highlightUserNote(currentMidiRounded); // Tecla Verde
+      // Atualiza UI apenas quando temos dados novos
+      this.uiController.updateGauge(centsOff);
+      this.uiController.highlightUserNote(currentMidiRounded);
 
-      // Lógica de Sucesso (checa se está dentro da tolerância)
-      // Nota: Math.abs(centsOff) lida com oitavas? No MVP não. 
-      // Para lidar com oitavas (requisito futuro), usaríamos modulo 12.
       if (Math.abs(centsOff) <= CONFIG.TOLERANCE_CENTS) {
         this.handleSuccessProgress();
       } else {
         this.resetSuccessTimer();
       }
     });
-
-    requestAnimationFrame(this.loop);
   };
 
   private handleSuccessProgress() {
     const now = performance.now();
-    if (!this.successStartTime) {
-      this.successStartTime = now;
-    }
-
+    if (!this.successStartTime) this.successStartTime = now;
     const elapsed = now - this.successStartTime;
     this.uiController.updateProgressBar(elapsed / CONFIG.SUCCESS_DURATION_MS);
-
     if (elapsed >= CONFIG.SUCCESS_DURATION_MS) {
       this.isRunning = false;
       this.uiController.showVictoryMessage();
@@ -75,8 +78,6 @@ export class GameLoop {
   }
 
   private resetSuccessTimer() {
-    // Pequeno "buffer de perdão" (Debounce):
-    // Se o usuário falhar por 100ms, não zera imediatamente (opcional)
     this.successStartTime = null; 
     this.uiController.updateProgressBar(0);
   }
