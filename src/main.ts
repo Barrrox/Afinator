@@ -8,7 +8,7 @@ import { MusicMath } from './utils/MusicMath'; // Importei para converter MIDI e
 
 // HTML Layout
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <h1>Afinator MVP</h1>
+  <h1>Afinator</h1>
   
   <div class="tuner-container">
     <div id="tuner-needle"></div>
