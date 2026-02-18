@@ -46,7 +46,7 @@ export class TunerDisplay {
 
   showVictory() {
     if (this.statusText) {
-      this.statusText.innerText = "PARABÉNS! VOCÊ ACERTOU!";
+      this.statusText.innerText = "Afinadíssimo";
       this.statusText.style.color = "blue";
       this.statusText.style.fontWeight = "bold";
     }

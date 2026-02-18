@@ -1,4 +1,3 @@
-import { CONFIG } from '../constants';
 import { MusicMath } from '../utils/MusicMath';
 import { PitchDetector } from './PitchDetector';
 import { AudioEngine } from './AudioEngine';
@@ -12,7 +11,8 @@ export class GameLoop {
   constructor(
     private pitchDetector: PitchDetector,
     private audioEngine: AudioEngine,
-    private uiController: any
+    private uiController: any,
+    private config: { tolerance: number, duration: number } // Injeção de config
   ) {}
 
   public startGame(noteMidi: number) {
@@ -58,7 +58,7 @@ export class GameLoop {
       this.uiController.updateGauge(centsOff);
       this.uiController.highlightUserNote(currentMidiRounded);
 
-      if (Math.abs(centsOff) <= CONFIG.TOLERANCE_CENTS) {
+      if (Math.abs(centsOff) <= this.config.tolerance) {
         this.handleSuccessProgress();
       } else {
         this.resetSuccessTimer();
@@ -70,8 +70,8 @@ export class GameLoop {
     const now = performance.now();
     if (!this.successStartTime) this.successStartTime = now;
     const elapsed = now - this.successStartTime;
-    this.uiController.updateProgressBar(elapsed / CONFIG.SUCCESS_DURATION_MS);
-    if (elapsed >= CONFIG.SUCCESS_DURATION_MS) {
+    this.uiController.updateProgressBar(elapsed / this.config.duration);
+    if (elapsed >= this.config.duration) {
       this.isRunning = false;
       this.uiController.showVictoryMessage();
     }

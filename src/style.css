@@ -134,3 +134,43 @@ body {
 #btn-replay:active {
   background-color: #444;
 }
+
+/* Telas */
+.screen { display: none; flex-direction: column; align-items: center; }
+.screen.active { display: flex; }
+
+/* Menu */
+.menu-container { gap: 20px; }
+.menu-title { font-size: 2.5rem; color: #3b82f6; }
+
+/* Modal / Caixa de Diálogo */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8); z-index: 100;
+  display: none; justify-content: center; align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-content {
+  background: #333; padding: 30px; border-radius: 15px;
+  max-width: 500px; width: 90%; position: relative;
+}
+.difficulty-option {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #444; margin: 10px 0; padding: 15px;
+  border-radius: 8px; cursor: pointer; transition: 0.2s;
+}
+.difficulty-option:hover { background: #555; border: 1px solid #3b82f6; }
+.difficulty-option.selected { border: 2px solid #22c55e; background: #2a3c2a; }
+
+/* Ícone de Ajuda */
+.help-icon {
+  background: #666; color: white; border-radius: 50%;
+  width: 20px; height: 20px; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 10px; cursor: help;
+}
+
+#btn-back-menu {
+  margin-top: 20px; background: none; border: 1px solid #777;
+  color: #aaa; padding: 10px; cursor: pointer;
+}

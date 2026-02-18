@@ -4,125 +4,104 @@ import { PitchDetector } from './core/PitchDetector';
 import { GameLoop } from './core/GameLoop';
 import { PianoComponent } from './ui/PianoComponent';
 import { TunerDisplay } from './ui/TunerDisplay';
-import { MusicMath } from './utils/MusicMath'; // Importei para converter MIDI em Freq
+import { DIFFICULTY_MODES, DEFAULT_MODE } from './constants';
 
-// HTML Layout
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <h1>Afinator</h1>
-  
-  <div class="tuner-container">
-    <div id="tuner-needle"></div>
-  </div>
-  <h2 id="status-text">Clique em JOGAR</h2>
-  
-  <div class="progress-container">
-    <div id="progress-fill"></div>
+  <div id="screen-menu" class="screen active menu-container">
+    <h1 class="menu-title">Afinator</h1>
+    <button id="btn-start-game" class="main-btn">JOGAR</button>
+    <button id="btn-open-difficulty" class="sec-btn">Dificuldade</button>
   </div>
 
-  <div id="piano-container"></div>
+  <div id="screen-game" class="screen">
+    <div class="tuner-container"><div id="tuner-needle"></div></div>
+    <h2 id="status-text">...</h2>
+    <div class="progress-container"><div id="progress-fill"></div></div>
+    <div id="piano-container"></div>
+    <div class="controls">
+      <button id="btn-replay">🔊 Ouvir</button>
+      <button id="btn-back-menu">Sair do Jogo</button>
+    </div>
+  </div>
 
-  <div class="controls">
-    <button id="btn-replay" title="Ouvir a nota novamente">
-      🔊 Ouvir Nota
-    </button>
-
-    <button id="btn-start" style="padding: 15px 30px; font-size: 18px; cursor: pointer;">
-      JOGAR (Iniciar Microfone)
-    </button>
+  <div id="modal-difficulty" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Qual seu nível de percepção?</h3>
+      <div id="difficulty-list"></div>
+      <button id="btn-close-modal" style="margin-top:15px">Fechar</button>
+    </div>
   </div>
 `;
 
-// Componentes da UI
+// -- ESTADO GLOBAL --
+let currentMode = localStorage.getItem('afinator_diff') || DEFAULT_MODE;
+let audioCtx: AudioContext | null = null;
+let detector: PitchDetector | null = null;
+let audio: AudioEngine | null = null;
+
 const piano = new PianoComponent('piano-container');
 const tuner = new TunerDisplay();
-const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
-const btnReplay = document.getElementById('btn-replay') as HTMLButtonElement; // Referência nova
-const statusText = document.getElementById('status-text')!;
 
-// Variáveis de Estado
-let game: GameLoop | null = null;
-let audio: AudioEngine | null = null;
-let detector: PitchDetector | null = null;
-let audioCtx: AudioContext | null = null;
-let isInitialized = false;
+// -- LÓGICA DE TELAS --
+function switchScreen(screenId: 'menu' | 'game') {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${screenId}`)?.classList.add('active');
+}
 
-// Variável para lembrar qual é a nota atual
-let currentTargetMidi: number | null = null;
+// -- MODAL E DIFICULDADE --
+function renderDifficultyOptions() {
+  const list = document.getElementById('difficulty-list')!;
+  list.innerHTML = Object.entries(DIFFICULTY_MODES).map(([key, cfg]) => `
+    <div class="difficulty-option ${currentMode === key ? 'selected' : ''}" data-key="${key}">
+      <span>${cfg.label}</span>
+      <div class="help-icon" title="${cfg.description}">?</div>
+    </div>
+  `).join('');
 
-// Adaptador da UI
-const uiAdapter = {
-  highlightTarget: (midi: number) => piano.highlightTarget(midi),
-  highlightUserNote: (midi: number) => piano.highlightUser(midi),
-  updateGauge: (cents: number) => tuner.updateGauge(cents),
-  updateProgressBar: (percent: number) => tuner.updateProgress(percent),
-  
-  showVictoryMessage: () => {
-    tuner.showVictory();
-    
-    // Configura botões para o fim de jogo
-    btnStart.innerText = "JOGAR NOVAMENTE";
-    btnStart.style.display = ""; 
-    btnStart.disabled = false;
-    
-    // Esconde o botão de ouvir, pois o jogo acabou
-    btnReplay.style.display = "none";
-  }
-};
+  document.querySelectorAll('.difficulty-option').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      currentMode = target.dataset.key!;
+      localStorage.setItem('afinator_diff', currentMode);
+      renderDifficultyOptions(); // Atualiza visual
+    });
+  });
+}
 
-// --- Botão REPLAY (Ouvir Novamente) ---
-btnReplay.addEventListener('click', () => {
-  if (audio && currentTargetMidi) {
-    // Converte a nota MIDI salva de volta para Hz e toca
-    const freq = MusicMath.midiToFreq(currentTargetMidi);
-    audio.playNote(freq, '2n'); // '2n' toca por mais tempo (meia nota)
-  }
+// -- BOTÕES --
+document.getElementById('btn-open-difficulty')?.addEventListener('click', () => {
+  renderDifficultyOptions();
+  document.getElementById('modal-difficulty')?.classList.add('active');
 });
 
-// --- Botão START ---
-btnStart.addEventListener('click', async () => {
-  btnStart.disabled = true;
+document.getElementById('btn-close-modal')?.addEventListener('click', () => {
+  document.getElementById('modal-difficulty')?.classList.remove('active');
+});
 
-  try {
-    if (!isInitialized) {
-      btnStart.innerText = "Inicializando...";
-      
-      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
-        latencyHint: 'interactive',
-        sampleRate: 44100,
-      });
-      await audioCtx.resume();
+document.getElementById('btn-back-menu')?.addEventListener('click', () => location.reload()); // Simplificado para o MVP
 
-      audio = new AudioEngine();
-      await audio.initialize();
-
-      detector = new PitchDetector(audioCtx);
-      await detector.initialize();
-
-      game = new GameLoop(detector, audio, uiAdapter);
-      isInitialized = true;
-    }
-
-    // Reset Visual
-    piano.clearHighlights(); 
-    tuner.updateGauge(0);
-    tuner.updateProgress(0);
-    
-    // Esconde Start, Mostra Replay
-    btnStart.style.display = 'none';
-    btnReplay.style.display = "block"; // Aparece o botão de ouvir!
-    
-    statusText.innerText = "Ouça a nota e cante!";
-    statusText.style.color = "white";
-
-    // Sorteia e SALVA a nota
-    currentTargetMidi = Math.floor(Math.random() * (72 - 48) + 48);
-    game!.startGame(currentTargetMidi);
-
-  } catch (e) {
-    console.error(e);
-    alert("Erro: " + e);
-    btnStart.innerText = "Erro - Tentar Novamente";
-    btnStart.disabled = false;
-    isInitialized = false;
+document.getElementById('btn-start-game')?.addEventListener('click', async () => {
+  switchScreen('game');
+  
+  if (!audioCtx) {
+    audioCtx = new AudioContext({ latencyHint: 'interactive' });
+    audio = new AudioEngine();
+    detector = new PitchDetector(audioCtx);
+    await audio.initialize();
+    await detector.initialize();
   }
+
+  const cfg = DIFFICULTY_MODES[currentMode];
+  const game = new GameLoop(detector!, audio!, {
+    highlightTarget: (m:any) => piano.highlightTarget(m),
+    highlightUserNote: (m:any) => piano.highlightUser(m),
+    updateGauge: (c:any) => tuner.updateGauge(c),
+    updateProgressBar: (p:any) => tuner.updateProgress(p),
+    showVictoryMessage: () => {
+      tuner.showVictory();
+      setTimeout(() => switchScreen('menu'), 2000); // Volta ao menu após 2s de vitória
+    }
+  }, { tolerance: cfg.tolerance, duration: cfg.duration });
+
+  game.startGame(Math.floor(Math.random() * 24 + 48));
 });
